@@ -1,0 +1,14 @@
+qmi_device: /dev/cdc-wdm0
+interface: wwan0
+status_file: /tmp/qmi5g-dashboard/status.json
+
+polling:
+  output_interval_sec: 1
+  signal_interval_sec: 2
+  serving_interval_sec: 5
+  network_interval_sec: 5
+  profile_interval_sec: 30
+
+web:
+  host: 0.0.0.0
+  port: 8000

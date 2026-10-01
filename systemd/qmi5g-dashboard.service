@@ -1,0 +1,15 @@
+[Unit]
+Description=QMI 5G Dashboard Web Service
+After=network.target qmi5g-collector.service
+Wants=qmi5g-collector.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/qmi-5g-dashboard
+Environment=QMI5G_STATUS_FILE=/tmp/qmi5g-dashboard/status.json
+ExecStart=/opt/qmi-5g-dashboard/.venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

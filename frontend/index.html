@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QMI 5G Dashboard</title>
+  <style>
+    :root {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                   "Segoe UI", sans-serif;
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #131a2a;
+      --panel-2: #182136;
+      --text: #eef3ff;
+      --muted: #95a2bb;
+      --border: #27334d;
+      --good: #4bd37b;
+      --warn: #f0b84a;
+      --bad: #f36b6b;
+      --accent: #6ea8fe;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--bad);
+    }
+
+    .dot.good { background: var(--good); }
+    .dot.warn { background: var(--warn); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-12 { grid-column: span 12; }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: 750;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .value.small { font-size: 20px; }
+
+    .unit {
+      font-size: 13px;
+      color: var(--muted);
+      margin-left: 4px;
+      font-weight: 600;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 8px 12px;
+      align-items: baseline;
+      font-size: 14px;
+    }
+
+    .kv .k { color: var(--muted); }
+    .kv .v { font-weight: 650; overflow-wrap: anywhere; }
+
+    .chart-card {
+      min-height: 300px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 220px;
+      display: block;
+      background: var(--panel-2);
+      border-radius: 10px;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 18px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend-line {
+      width: 18px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .legend-line.alt {
+      background: #d3a5ff;
+    }
+
+    .footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .error {
+      display: none;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #6d2f37;
+      background: #2a1519;
+      color: #ffc4ca;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .span-3, .span-4, .span-6 { grid-column: span 6; }
+    }
+
+    @media (max-width: 600px) {
+      .page { padding: 14px; }
+      .header { align-items: flex-start; flex-direction: column; }
+      .span-3, .span-4, .span-6, .span-12 { grid-column: span 12; }
+      .kv { grid-template-columns: 110px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1>QMI 5G Dashboard</h1>
+        <div class="subtitle">QMI + Linux WWAN · live cellular telemetry</div>
+      </div>
+      <div class="status-pill">
+        <span id="status-dot" class="dot"></span>
+        <span id="status-text">DISCONNECTED</span>
+      </div>
+    </div>
+
+    <div id="error-box" class="error"></div>
+
+    <div class="grid">
+      <div class="card span-3">
+        <div class="label">RSRP</div>
+        <div class="value"><span id="rsrp">--</span><span class="unit">dBm</span></div>
+      </div>
+
+      <div class="card span-3">
+        <div class="label">RSRQ</div>
+        <div class="value"><span id="rsrq">--</span><span class="unit">dB</span></div>
+      </div>
+
+      <div class="card span-3">
+        <div class="label">SNR</div>
+        <div class="value"><span id="snr">--</span><span class="unit">dB</span></div>
+      </div>
+
+      <div class="card span-3">
+        <div class="label">RAT</div>
+        <div id="rat" class="value small">--</div>
+      </div>
+
+      <div class="card span-4">
+        <div class="label">Network</div>
+        <div class="kv">
+          <div class="k">PLMN</div><div id="plmn" class="v">--</div>
+          <div class="k">Registration</div><div id="registration" class="v">--</div>
+          <div class="k">Packet Service</div><div id="packet-service" class="v">--</div>
+          <div class="k">Roaming</div><div id="roaming" class="v">--</div>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="label">PDU Session</div>
+        <div class="kv">
+          <div class="k">APN</div><div id="apn" class="v">--</div>
+          <div class="k">UE IP</div><div id="ue-ip" class="v">--</div>
+          <div class="k">Gateway</div><div id="gateway" class="v">--</div>
+          <div class="k">MTU</div><div id="mtu" class="v">--</div>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="label">Linux Interface</div>
+        <div class="kv">
+          <div class="k">Interface</div><div id="iface" class="v">--</div>
+          <div class="k">Admin</div><div id="admin-up" class="v">--</div>
+          <div class="k">Lower Link</div><div id="lower-up" class="v">--</div>
+          <div class="k">Operstate</div><div id="operstate" class="v">--</div>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <div class="label">RX Rate</div>
+        <div class="value"><span id="rx-rate">--</span><span class="unit">Mbps</span></div>
+      </div>
+
+      <div class="card span-6">
+        <div class="label">TX Rate</div>
+        <div class="value"><span id="tx-rate">--</span><span class="unit">Mbps</span></div>
+      </div>
+
+      <div class="card span-12 chart-card">
+        <div class="label">Realtime Throughput · Last 60 seconds</div>
+        <canvas id="throughput-chart" width="1100" height="220"></canvas>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-line"></span> RX Mbps</span>
+          <span class="legend-item"><span class="legend-line alt"></span> TX Mbps</span>
+        </div>
+      </div>
+
+      <div class="card span-12 chart-card">
+        <div class="label">RF Signal · Last 60 seconds</div>
+        <canvas id="signal-chart" width="1100" height="220"></canvas>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-line"></span> RSRP dBm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Last update: <span id="timestamp">--</span>
+    </div>
+  </div>
+
+<script>
+  const historySize = 60;
+  const hist = {
+    rx: [], tx: [], rsrp: []
+  };
+
+  const $ = id => document.getElementById(id);
+
+  function fmt(v, digits = 1) {
+    if (v === null || v === undefined || Number.isNaN(Number(v))) return "--";
+    return Number(v).toFixed(digits);
+  }
+
+  function yesNo(v) {
+    if (v === true) return "UP";
+    if (v === false) return "DOWN";
+    return "--";
+  }
+
+  function pushHistory(arr, value) {
+    arr.push(value === null || value === undefined ? null : Number(value));
+    if (arr.length > historySize) arr.shift();
+  }
+
+  function drawLineChart(canvas, seriesList, opts = {}) {
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    const pad = {l: 52, r: 18, t: 16, b: 26};
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#182136";
+    ctx.fillRect(0, 0, w, h);
+
+    let values = [];
+    for (const s of seriesList) {
+      values = values.concat(s.data.filter(v => Number.isFinite(v)));
+    }
+
+    let minY = opts.minY;
+    let maxY = opts.maxY;
+
+    if (minY === undefined || maxY === undefined) {
+      if (values.length === 0) {
+        minY = 0; maxY = 1;
+      } else {
+        minY = Math.min(...values);
+        maxY = Math.max(...values);
+        if (minY === maxY) maxY = minY + 1;
+        const span = maxY - minY;
+        minY -= span * 0.15;
+        maxY += span * 0.15;
+      }
+    }
+
+    ctx.strokeStyle = "#33405d";
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "#95a2bb";
+    ctx.font = "11px sans-serif";
+
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.t + (h - pad.t - pad.b) * i / 4;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, y);
+      ctx.lineTo(w - pad.r, y);
+      ctx.stroke();
+
+      const val = maxY - (maxY - minY) * i / 4;
+      ctx.fillText(val.toFixed(opts.yDigits ?? 1), 6, y + 4);
+    }
+
+    for (const s of seriesList) {
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      let started = false;
+      const n = Math.max(s.data.length, 2);
+
+      s.data.forEach((v, i) => {
+        if (!Number.isFinite(v)) {
+          started = false;
+          return;
+        }
+        const x = pad.l + (w - pad.l - pad.r) * i / (n - 1);
+        const y = pad.t + (h - pad.t - pad.b) * (maxY - v) / (maxY - minY);
+
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+
+      ctx.stroke();
+    }
+  }
+
+  function updateDashboard(data) {
+    const errorBox = $("error-box");
+
+    if (!data || !data.available) {
+      $("status-dot").className = "dot";
+      $("status-text").textContent = "NO DATA";
+      errorBox.style.display = "block";
+      errorBox.textContent = data?.error || "No collector data available";
+      return;
+    }
+
+    errorBox.style.display = "none";
+
+    const c = data.cellular || {};
+    const d = data.data_session || {};
+    const t = data.traffic || {};
+    const dev = data.device || {};
+
+    const connected =
+      c.registration === "registered" &&
+      c.packet_service === "attached" &&
+      !!d.ipv4;
+
+    $("status-dot").className = connected ? "dot good" : "dot warn";
+    $("status-text").textContent = connected ? "CONNECTED" : "REGISTERED / NO DATA";
+
+    $("rsrp").textContent = fmt(c.rsrp_dbm, 0);
+    $("rsrq").textContent = fmt(c.rsrq_db, 0);
+    $("snr").textContent = fmt(c.snr_db, 1);
+    $("rat").textContent = (c.rat || "--").toUpperCase();
+
+    $("plmn").textContent = c.plmn || "--";
+    $("registration").textContent = c.registration || "--";
+    $("packet-service").textContent = c.packet_service || "--";
+    $("roaming").textContent =
+      c.roaming === true ? "ON" :
+      c.roaming === false ? "OFF" : "--";
+
+    $("apn").textContent = d.apn || "--";
+    $("ue-ip").textContent =
+      d.ipv4 ? `${d.ipv4}${d.prefix_length !== null && d.prefix_length !== undefined ? "/" + d.prefix_length : ""}` : "--";
+    $("gateway").textContent = d.gateway || "--";
+    $("mtu").textContent = d.mtu ?? "--";
+
+    $("iface").textContent = dev.interface || "--";
+    $("admin-up").textContent = yesNo(dev.admin_up ?? dev.interface_up);
+    $("lower-up").textContent = yesNo(dev.lower_up);
+    $("operstate").textContent = dev.operstate || "--";
+
+    $("rx-rate").textContent = fmt(t.rx_mbps, 3);
+    $("tx-rate").textContent = fmt(t.tx_mbps, 3);
+
+    $("timestamp").textContent = data.timestamp || "--";
+
+    pushHistory(hist.rx, t.rx_mbps);
+    pushHistory(hist.tx, t.tx_mbps);
+    pushHistory(hist.rsrp, c.rsrp_dbm);
+
+    drawLineChart(
+      $("throughput-chart"),
+      [
+        {data: hist.rx, color: "#6ea8fe"},
+        {data: hist.tx, color: "#d3a5ff"}
+      ],
+      {minY: 0, yDigits: 2}
+    );
+
+    drawLineChart(
+      $("signal-chart"),
+      [{data: hist.rsrp, color: "#6ea8fe"}],
+      {minY: -130, maxY: -50, yDigits: 0}
+    );
+  }
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${proto}://${location.host}/ws/live`);
+
+    ws.onmessage = event => {
+      try {
+        updateDashboard(JSON.parse(event.data));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    ws.onclose = () => {
+      $("status-dot").className = "dot";
+      $("status-text").textContent = "RECONNECTING";
+      setTimeout(connect, 1500);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  connect();
+</script>
+</body>
+</html>

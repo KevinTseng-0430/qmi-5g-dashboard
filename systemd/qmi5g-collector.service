@@ -1,0 +1,14 @@
+[Unit]
+Description=QMI 5G Dashboard Collector
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/qmi-5g-dashboard
+Environment=QMI5G_STATUS_FILE=/tmp/qmi5g-dashboard/status.json
+ExecStart=/opt/qmi-5g-dashboard/.venv/bin/python /opt/qmi-5g-dashboard/collector/qmi5g_collector.py --config /opt/qmi-5g-dashboard/config.yaml --output /tmp/qmi5g-dashboard/status.json
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
