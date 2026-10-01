@@ -4,6 +4,9 @@ A lightweight, read-only web dashboard for monitoring Linux QMI-based 5G modems 
 
 Initially developed and validated with a **SIMCom SIM8200EA-M2** on a Raspberry Pi connected to an **OAI 5G SA** testbed.
 
+<img width="1232" height="1098" alt="Screenshot 2026-10-01 at 14-44-05" src="https://github.com/user-attachments/assets/104928c4-32b9-47b8-b7c6-1fa751bb7a91" />
+
+
 ## Features
 
 - 5G NR RSRP / RSRQ / SNR
